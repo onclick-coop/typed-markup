@@ -84,26 +84,16 @@ export class Template {
   }
 
   /**
-   * Clones the underlying markup with element references.
+   * Clones the underlying markup with element references and replaces slots.
    * @template {Record<ExtractSlots<T>, ChildNode | Markup<any, any>>} U
    * @param {ExtractSlots<T> extends never ? [] : [slotted: U]} args
    */
   bind(...args) {
     const slotted =
-      args[0] ?? /** @type {Record<ExtractSlots<T>, ChildNode>} */ ({});
-    return this.#bindWith(
       /** @type {ExtractSlots<T> extends never ? Record<ExtractSlots<T>, ChildNode> : U} */ (
-        slotted
-      ),
-    );
-  }
+        args[0] ?? {}
+      );
 
-  /**
-   * Clones the underlying markup with element references and slots replaced.
-   * @template {Record<ExtractSlots<T>, ChildNode | Markup<any, any>>} U
-   * @param {U} slotted
-   */
-  #bindWith(slotted) {
     const fragment = /** @type {DocumentFragment} */ (
       this.#fragment.cloneNode(true)
     );
@@ -141,10 +131,6 @@ export class Template {
     );
   }
 }
-
-const a = Template.svg(/* html */ `<svg data-ref="s"><!--slot:t--></svg>`);
-const b = Template.html(/* html */ `<a data-ref="x"><!--slot:svg--></a>`);
-b.bind({ svg: a.bind({ t: new Text("abc") }) }).refs.x;
 
 /**
  * @template {string} S
