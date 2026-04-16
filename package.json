@@ -2,5 +2,8 @@
   "name": "typed-markup",
   "version": "0.1.0",
   "type": "module",
+  "scripts": {
+    "prepare": "tsc -p jsconfig.json --declaration --emitDeclarationOnly --noEmit false"
+  },
   "exports": "./index.js"
 }
