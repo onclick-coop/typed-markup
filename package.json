@@ -3,7 +3,12 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "prepare": "tsc -p jsconfig.json --declaration --emitDeclarationOnly --noEmit false"
+    "prepare": "tsc -p jsconfig.json --declaration --emitDeclarationOnly --noEmit false",
+    "test": "vitest"
   },
-  "exports": "./index.js"
+  "exports": "./index.js",
+  "devDependencies": {
+    "happy-dom": "^20.9.0",
+    "vitest": "^4.1.4"
+  }
 }
