@@ -97,7 +97,7 @@ export class Template {
     const fragment = /** @type {DocumentFragment} */ (
       this.#fragment.cloneNode(true)
     );
-    const nodeIter = document.createNodeIterator(
+    const nodeIter = document.createTreeWalker(
       fragment,
       NodeFilter.SHOW_COMMENT | NodeFilter.SHOW_ELEMENT,
     );
