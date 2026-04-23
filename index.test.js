@@ -195,6 +195,14 @@ describe("TemplateFactory / configurable prefix+attr", () => {
 
     /** @type {HTMLDivElement} */
     const box = outer.refs.box;
+    /** @type {HTMLSpanElement} */
+    const span1 = inner.refs.label;
+    /** @type {HTMLSpanElement} */
+    const span2 = outer.slots.child.refs.label;
+
+    expect(span1).toBeInstanceOf(HTMLSpanElement);
+    expect(span2).toBeInstanceOf(HTMLSpanElement);
+    expect(span1).toBe(span2);
     expect(box.querySelector("span")?.textContent).toBe("nested");
   });
 
