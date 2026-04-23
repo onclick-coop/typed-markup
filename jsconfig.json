@@ -6,8 +6,9 @@
     "moduleResolution": "Bundler",
     "strict": true,
     "checkJs": true,
-    "noEmit": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "noEmit": false
   },
-  "include": ["index.js", "index.test.js"]
+  "include": ["*.js"],
+  "exclude": ["*.bench.js", "*.test.js", "*.config.js"]
 }
