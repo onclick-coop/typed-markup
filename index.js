@@ -30,11 +30,15 @@ class Markup {
 /**
  * @template {string} T
  * @template {{ [K in keyof M]: Element }} [M=HTMLElementTagNameMap]
+ * @template {string} [P=typeof Template.defaultSelectors.slotPrefix]
+ * @template {string} [A=typeof Template.defaultSelectors.refAttr]
  */
 export class Template {
   static #range = document.createRange();
-  static slotPrefix = /** @type {const} */ ("slot:");
-  static refAttr = /** @type {const} */ ("data-ref");
+  static defaultSelectors = /** @type {const} */ ({
+    slotPrefix: "slot:",
+    refAttr: "data-ref",
+  });
 
   static #svgContext = document.createElementNS(
     "http://www.w3.org/2000/svg",
@@ -47,50 +51,87 @@ export class Template {
 
   /**
    * @template {string} T
+   * @template {string} [P="slot:"]
+   * @template {string} [A="data-ref"]
    * @param {T} template
+   * @param {{ slotPrefix?: P, refAttr?: A }} [selectors]
    */
-  static svg(template) {
-    return /** @type {Template<T, SVGElementTagNameMap>} */ (
-      new Template(template, Template.#svgContext)
+  static svg(template, selectors) {
+    return /** @type {Template<T, SVGElementTagNameMap, P, A>} */ (
+      new Template(
+        template,
+        Template.#svgContext,
+        /** @type {{ slotPrefix: P, refAttr: A }} */ ({
+          ...Template.defaultSelectors,
+          ...selectors,
+        }),
+      )
     );
   }
 
   /**
    * @template {string} T
+   * @template {string} [P="slot:"]
+   * @template {string} [A="data-ref"]
    * @param {T} template
+   * @param {{ slotPrefix?: P, refAttr?: A }} [selectors]
    */
-  static mathML(template) {
-    return /** @type {Template<T, MathMLElementTagNameMap>} */ (
-      new Template(template, Template.#mathMLContext)
+  static mathML(template, selectors) {
+    return /** @type {Template<T, MathMLElementTagNameMap, P, A>} */ (
+      new Template(
+        template,
+        Template.#mathMLContext,
+        /** @type {{ slotPrefix: P, refAttr: A }} */ ({
+          ...Template.defaultSelectors,
+          ...selectors,
+        }),
+      )
     );
   }
 
   /**
    * @template {string} T
+   * @template {string} [P=typeof Template.defaultSelectors.slotPrefix]
+   * @template {string} [A=typeof Template.defaultSelectors.refAttr]
    * @param {T} template
+   * @param {{ slotPrefix?: P, refAttr?: A }} [selectors]
    */
-  static html(template) {
-    return new Template(template, document.documentElement);
+  static html(template, selectors) {
+    return /** @type {Template<T, HTMLElementTagNameMap, P, A>} */ (
+      new Template(
+        template,
+        document.documentElement,
+        /** @type {{ slotPrefix: P, refAttr: A }} */ ({
+          ...Template.defaultSelectors,
+          ...selectors,
+        }),
+      )
+    );
   }
 
   #fragment;
+  #slotPrefix;
+  #refAttr;
   /**
    * @param {T} template
    * @param {M[keyof M]} contextNode
+   * @param {{ slotPrefix: P, refAttr: A }} selectors
    */
-  constructor(template, contextNode) {
+  constructor(template, contextNode, selectors) {
     Template.#range.selectNodeContents(contextNode);
     this.#fragment = Template.#range.createContextualFragment(template);
+    this.#slotPrefix = selectors.slotPrefix;
+    this.#refAttr = selectors.refAttr;
   }
 
   /**
    * Clones the underlying markup with element references and replaces slots.
-   * @template {Record<ExtractSlots<T>, ChildNode | Markup<any, any>>} U
-   * @param {ExtractSlots<T> extends never ? [] : [slotted: U]} args
+   * @template {Record<ExtractSlots<T, P>, ChildNode | Markup<any, any>>} U
+   * @param {ExtractSlots<T, P> extends never ? [] : [slotted: U]} args
    */
   bind(...args) {
     const slotted =
-      /** @type {ExtractSlots<T> extends never ? Record<ExtractSlots<T>, ChildNode> : U} */ (
+      /** @type {ExtractSlots<T, P> extends never ? Record<ExtractSlots<T, P>, ChildNode> : U} */ (
         args[0] ?? {}
       );
 
@@ -107,15 +148,15 @@ export class Template {
     const replaceNodes = [];
     for (let n = nodeIter.nextNode(); n; n = nodeIter.nextNode()) {
       if (n instanceof Element) {
-        const ref = n.getAttribute(Template.refAttr);
+        const ref = n.getAttribute(this.#refAttr);
         if (ref != null) {
           refs[ref] = n;
         }
       } else if (n instanceof Comment) {
         const t = n.textContent;
-        if (t.startsWith(Template.slotPrefix)) {
+        if (t.startsWith(this.#slotPrefix)) {
           const name = /** @type {keyof U} */ (
-            t.slice(Template.slotPrefix.length)
+            t.slice(this.#slotPrefix.length)
           );
           replaceNodes.push({ node: slotted[name], slot: n });
         }
@@ -127,18 +168,74 @@ export class Template {
     return new Markup(
       fragment,
       slotted,
-      /** @type {ExtractRefs<T, M>} */ (refs),
+      /** @type {ExtractRefs<T, M, A>} */ (refs),
+    );
+  }
+}
+
+/**
+ * @template {string} [P=typeof Template.defaultSelectors.slotPrefix]
+ * @template {string} [A=typeof Template.defaultSelectors.refAttr]
+ */
+export class TemplateFactory {
+  #selectors;
+  /**
+   * @param {{ slotPrefix?: P, refAttr?: A }} [options]
+   */
+  constructor(options) {
+    this.#selectors = /** @type {{ slotPrefix: P, refAttr: A }} */ ({
+      slotPrefix: options?.slotPrefix ?? Template.defaultSelectors.slotPrefix,
+      refAttr: options?.refAttr ?? Template.defaultSelectors.refAttr,
+    });
+  }
+
+  get slotPrefix() {
+    return this.#selectors.slotPrefix;
+  }
+  get refAttr() {
+    return this.#selectors.refAttr;
+  }
+
+  /**
+   * @template {string} T
+   * @param {T} template
+   */
+  html(template) {
+    return /** @type {Template<T, HTMLElementTagNameMap, P, A>} */ (
+      Template.html(template, this.#selectors)
+    );
+  }
+
+  /**
+   * @template {string} T
+   * @param {T} template
+   */
+  svg(template) {
+    return /** @type {Template<T, SVGElementTagNameMap, P, A>} */ (
+      Template.svg(template, this.#selectors)
+    );
+  }
+
+  /**
+   * @template {string} T
+   * @param {T} template
+   */
+  mathML(template) {
+    return /** @type {Template<T, MathMLElementTagNameMap, P, A>} */ (
+      Template.mathML(template, this.#selectors)
     );
   }
 }
 
 /**
  * @template {string} S
- * @typedef {S extends `${string}${MatchSlot<infer T>}${infer Rest}` ? T | ExtractSlots<Rest> : never} ExtractSlots
+ * @template {string} [P="slot:"]
+ * @typedef {S extends `${string}${MatchSlot<infer T, P>}${infer Rest}` ? T | ExtractSlots<Rest, P> : never} ExtractSlots
  */
 /**
  * @template {string} T
- * @typedef {`<!--${typeof Template['slotPrefix']}${T}-->`} MatchSlot
+ * @template {string} [P="slot:"]
+ * @typedef {`<!--${P}${T}-->`} MatchSlot
  */
 /**
  * @template {string} S
@@ -151,17 +248,20 @@ export class Template {
 /**
  * @template {string} S
  * @template {{ [K in keyof M & string]: Element }} [M=HTMLElementTagNameMap]
- * @typedef {S extends `${string}<${infer TagAndAttr}>${infer Rest}` ?  (TagAndAttr extends MatchRefAndTag<infer T, infer Ref> ? { [K in Ref]: TagToElement<T, M> } & ExtractRefsHelper<Rest, M> : ExtractRefsHelper<Rest, M>) : {}} ExtractRefsHelper
+ * @template {string} [A="data-ref"]
+ * @typedef {S extends `${string}<${infer TagAndAttr}>${infer Rest}` ?  (TagAndAttr extends MatchRefAndTag<infer T, infer Ref, A> ? { [K in Ref]: TagToElement<T, M> } & ExtractRefsHelper<Rest, M, A> : ExtractRefsHelper<Rest, M, A>) : {}} ExtractRefsHelper
  */
 /**
  * @template {string} T
  * @template {string} R
- * @typedef {`${string} ${typeof Template['refAttr']}="${R}"${string}` & `${T} ${string}`} MatchRefAndTag
+ * @template {string} [A="data-ref"]
+ * @typedef {`${string} ${A}="${R}"${string}` & `${T} ${string}`} MatchRefAndTag
  */
 /**
  * @template {string} S
  * @template {{ [K in keyof M & string]: Element }} [M=HTMLElementTagNameMap]
- * @typedef {ExtractRefsHelper<StripClosingTags<StripComments<S>>, M>} ExtractRefs
+ * @template {string} [A="data-ref"]
+ * @typedef {ExtractRefsHelper<StripClosingTags<StripComments<S>>, M, A>} ExtractRefs
  */
 /**
  * @template {string} K
