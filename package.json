@@ -5,5 +5,8 @@
   "scripts": {
     "prepare": "tsc -p jsconfig.json --declaration --emitDeclarationOnly --noEmit false"
   },
-  "exports": "./index.js"
+  "exports": "./index.js",
+  "devDependencies": {
+    "typescript": "^6.0.3"
+  }
 }
