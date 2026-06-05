@@ -10,7 +10,7 @@ import { Template } from "./index.js";
 // budget. NOTE: this must remain a string literal — runtime-built strings
 // (e.g. Array.from(...).join("")) widen to `string` and bypass type-level
 // parsing entirely.
-const template = Template.html(
+const template = new Template().html(
   `<section data-ref="root">
 <p data-ref="p0">x</p><!--c0-->
 <p data-ref="p1">x</p><!--c1-->

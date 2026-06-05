@@ -5,6 +5,6 @@
     "declaration": false,
     "emitDeclarationOnly": false
   },
-  "include": ["*.js"],
+  "include": ["*.js", "*.test-d.ts"],
   "exclude": ["*.bench.js", "*.config.js"]
 }

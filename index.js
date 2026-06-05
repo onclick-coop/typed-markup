@@ -3,25 +3,25 @@
  * @template {Record<string, Element>} U
  */
 class Markup {
-  #fragment;
+  #root;
   #slots;
   #refs;
   get slots() {
     return this.#slots;
   }
-  get fragment() {
-    return this.#fragment;
+  get root() {
+    return this.#root;
   }
   get refs() {
     return this.#refs;
   }
   /**
-   * @param {DocumentFragment} fragment
+   * @param {DocumentFragment} root
    * @param {T} slots
    * @param {U} refs
    */
-  constructor(fragment, slots, refs) {
-    this.#fragment = fragment;
+  constructor(root, slots, refs) {
+    this.#root = root;
     this.#slots = slots;
     this.#refs = refs;
   }
@@ -33,81 +33,8 @@ class Markup {
  * @template {string} [P=typeof Template.defaultSelectors.slotPrefix]
  * @template {string} [A=typeof Template.defaultSelectors.refAttr]
  */
-export class Template {
+export class Fragment {
   static #range = document.createRange();
-  static defaultSelectors = /** @type {const} */ ({
-    slotPrefix: "slot:",
-    refAttr: "data-ref",
-  });
-
-  static #svgContext = document.createElementNS(
-    "http://www.w3.org/2000/svg",
-    "svg",
-  );
-  static #mathMLContext = document.createElementNS(
-    "http://www.w3.org/1998/Math/MathML",
-    "math",
-  );
-
-  /**
-   * @template {string} T
-   * @template {string} [P="slot:"]
-   * @template {string} [A="data-ref"]
-   * @param {T} template
-   * @param {{ slotPrefix?: P, refAttr?: A }} [selectors]
-   */
-  static svg(template, selectors) {
-    return /** @type {Template<T, SVGElementTagNameMap, P, A>} */ (
-      new Template(
-        template,
-        Template.#svgContext,
-        /** @type {{ slotPrefix: P, refAttr: A }} */ ({
-          ...Template.defaultSelectors,
-          ...selectors,
-        }),
-      )
-    );
-  }
-
-  /**
-   * @template {string} T
-   * @template {string} [P="slot:"]
-   * @template {string} [A="data-ref"]
-   * @param {T} template
-   * @param {{ slotPrefix?: P, refAttr?: A }} [selectors]
-   */
-  static mathML(template, selectors) {
-    return /** @type {Template<T, MathMLElementTagNameMap, P, A>} */ (
-      new Template(
-        template,
-        Template.#mathMLContext,
-        /** @type {{ slotPrefix: P, refAttr: A }} */ ({
-          ...Template.defaultSelectors,
-          ...selectors,
-        }),
-      )
-    );
-  }
-
-  /**
-   * @template {string} T
-   * @template {string} [P=typeof Template.defaultSelectors.slotPrefix]
-   * @template {string} [A=typeof Template.defaultSelectors.refAttr]
-   * @param {T} template
-   * @param {{ slotPrefix?: P, refAttr?: A }} [selectors]
-   */
-  static html(template, selectors) {
-    return /** @type {Template<T, HTMLElementTagNameMap, P, A>} */ (
-      new Template(
-        template,
-        document.documentElement,
-        /** @type {{ slotPrefix: P, refAttr: A }} */ ({
-          ...Template.defaultSelectors,
-          ...selectors,
-        }),
-      )
-    );
-  }
 
   #fragment;
   #slotPrefix;
@@ -115,11 +42,11 @@ export class Template {
   /**
    * @param {T} template
    * @param {M[keyof M]} contextNode
-   * @param {{ slotPrefix: P, refAttr: A }} selectors
+   * @param {CompleteTemplateSelectors<P, A>} selectors
    */
   constructor(template, contextNode, selectors) {
-    Template.#range.selectNodeContents(contextNode);
-    this.#fragment = Template.#range.createContextualFragment(template);
+    Fragment.#range.selectNodeContents(contextNode);
+    this.#fragment = Fragment.#range.createContextualFragment(template);
     this.#slotPrefix = selectors.slotPrefix;
     this.#refAttr = selectors.refAttr;
   }
@@ -163,7 +90,7 @@ export class Template {
       }
     }
     for (const { node, slot } of replaceNodes) {
-      slot.replaceWith(node instanceof Markup ? node.fragment : node);
+      slot.replaceWith(node instanceof Markup ? node.root : node);
     }
     return new Markup(
       fragment,
@@ -177,15 +104,37 @@ export class Template {
  * @template {string} [P=typeof Template.defaultSelectors.slotPrefix]
  * @template {string} [A=typeof Template.defaultSelectors.refAttr]
  */
-export class TemplateFactory {
+export class Template {
+  static defaultSelectors =
+    /** @satisfies {CompleteTemplateSelectors<string, string>} **/ (
+      /** @type {const} */ ({
+        slotPrefix: "slot:",
+        refAttr: "data-ref",
+      })
+    );
+
+  static #svgContext = document.createElementNS(
+    "http://www.w3.org/2000/svg",
+    "svg",
+  );
+  static #mathMLContext = document.createElementNS(
+    "http://www.w3.org/1998/Math/MathML",
+    "math",
+  );
+
   #selectors;
   /**
-   * @param {{ slotPrefix?: P, refAttr?: A }} [options]
+   * The selectors argument is only omittable while P and A match the
+   * defaults; a deviating type argument makes the matching runtime value
+   * required, so e.g. `new Template<"a:", "data-b">()` is a type error
+   * instead of silent type/runtime drift.
+   * @param {CompleteTemplateSelectors<P, A> extends typeof Template.defaultSelectors ? [selectors?: TemplateSelectors<P, A>] : [selectors: TemplateSelectors<P, A>]} args
    */
-  constructor(options) {
-    this.#selectors = /** @type {{ slotPrefix: P, refAttr: A }} */ ({
-      slotPrefix: options?.slotPrefix ?? Template.defaultSelectors.slotPrefix,
-      refAttr: options?.refAttr ?? Template.defaultSelectors.refAttr,
+  constructor(...args) {
+    const [selectors] = args;
+    this.#selectors = /** @type {CompleteTemplateSelectors<P, A>} */ ({
+      slotPrefix: selectors?.slotPrefix ?? Template.defaultSelectors.slotPrefix,
+      refAttr: selectors?.refAttr ?? Template.defaultSelectors.refAttr,
     });
   }
 
@@ -201,8 +150,8 @@ export class TemplateFactory {
    * @param {T} template
    */
   html(template) {
-    return /** @type {Template<T, HTMLElementTagNameMap, P, A>} */ (
-      Template.html(template, this.#selectors)
+    return /** @type {Fragment<T, HTMLElementTagNameMap, P, A>} */ (
+      new Fragment(template, document.documentElement, this.#selectors)
     );
   }
 
@@ -211,8 +160,8 @@ export class TemplateFactory {
    * @param {T} template
    */
   svg(template) {
-    return /** @type {Template<T, SVGElementTagNameMap, P, A>} */ (
-      Template.svg(template, this.#selectors)
+    return /** @type {Fragment<T, SVGElementTagNameMap, P, A>} */ (
+      new Fragment(template, Template.#svgContext, this.#selectors)
     );
   }
 
@@ -221,12 +170,29 @@ export class TemplateFactory {
    * @param {T} template
    */
   mathML(template) {
-    return /** @type {Template<T, MathMLElementTagNameMap, P, A>} */ (
-      Template.mathML(template, this.#selectors)
+    return /** @type {Fragment<T, MathMLElementTagNameMap, P, A>} */ (
+      new Fragment(template, Template.#mathMLContext, this.#selectors)
     );
   }
 }
 
+/** A ready-to-use Template configured with the default selectors. */
+export const template = new Template(Template.defaultSelectors);
+
+/**
+ * @template {string} P
+ * @template {string} A
+ * @typedef {{ slotPrefix: P, refAttr: A }} CompleteTemplateSelectors
+ */
+
+/**
+ * The selectors argument for a Template: each selector is optional while its
+ * type matches the default, and required once it deviates — keeping runtime
+ * values in lockstep with the type parameters.
+ * @template {string} P
+ * @template {string} A
+ * @typedef {([P] extends [typeof Template.defaultSelectors.slotPrefix] ? { slotPrefix?: P } : { slotPrefix: P }) & ([A] extends [typeof Template.defaultSelectors.refAttr] ? { refAttr?: A } : { refAttr: A })} TemplateSelectors
+ */
 /**
  * Accumulator-passing style keeps the recursive reference in tail position so
  * TypeScript evaluates it iteratively (tail-recursion elimination on

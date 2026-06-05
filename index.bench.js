@@ -1,26 +1,28 @@
 import { bench, describe } from "vitest";
 import { Template } from "./index.js";
 
-describe("Template.bind", () => {
-  const refsOnly = Template.html(
+describe("Fragment.bind", () => {
+  const template = new Template();
+
+  const refsOnly = template.html(
     `<div data-ref="a"><span data-ref="b"><em data-ref="c"></em></span></div>`,
   );
 
-  const slotsOnly = Template.html(
+  const slotsOnly = template.html(
     `<div><!--slot:header--><!--slot:body--><!--slot:footer--></div>`,
   );
 
-  const mixed = Template.html(
+  const mixed = template.html(
     `<div data-ref="wrapper"><!--slot:header--><span data-ref="label"><!--slot:content--></span><!--slot:footer--></div>`,
   );
 
-  const nestedInner = Template.html(`<span data-ref="inner">nested</span>`);
+  const nestedInner = template.html(`<span data-ref="inner">nested</span>`);
 
-  const nestedOuter = Template.html(
+  const nestedOuter = template.html(
     `<div data-ref="wrapper"><!--slot:child--></div>`,
   );
 
-  const large = Template.html(
+  const large = template.html(
     `<div data-ref="root">` +
     Array.from({ length: 50 }, (_, i) => `<p data-ref="p${i}"><!--slot:s${i}--></p>`).join("") +
     `</div>`,
