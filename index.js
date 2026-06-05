@@ -146,32 +146,46 @@ export class Template {
   }
 
   /**
+   * Parse `template` as HTML. `contextNode` defaults to the document element
+   * (body parsing mode); pass an element from the same tag-name map to parse
+   * in a different insertion mode — e.g. a `<tbody>` so `<tr>` start tags
+   * survive. Typed as `HTMLElementTagNameMap[keyof HTMLElementTagNameMap]` so
+   * an SVG/MathML node can't be used as the context, mirroring the parse map.
    * @template {string} T
    * @param {T} template
+   * @param {HTMLElementTagNameMap[keyof HTMLElementTagNameMap]} [contextNode]
    */
-  html(template) {
+  html(template, contextNode = document.documentElement) {
     return /** @type {Fragment<T, HTMLElementTagNameMap, P, A>} */ (
-      new Fragment(template, document.documentElement, this.#selectors)
+      new Fragment(template, contextNode, this.#selectors)
     );
   }
 
   /**
+   * Parse `template` as SVG. `contextNode` defaults to a detached `<svg>`;
+   * pass another SVG element to parse in its insertion context. Typed against
+   * `SVGElementTagNameMap` so only SVG nodes are accepted as the context.
    * @template {string} T
    * @param {T} template
+   * @param {SVGElementTagNameMap[keyof SVGElementTagNameMap]} [contextNode]
    */
-  svg(template) {
+  svg(template, contextNode = Template.#svgContext) {
     return /** @type {Fragment<T, SVGElementTagNameMap, P, A>} */ (
-      new Fragment(template, Template.#svgContext, this.#selectors)
+      new Fragment(template, contextNode, this.#selectors)
     );
   }
 
   /**
+   * Parse `template` as MathML. `contextNode` defaults to a detached `<math>`;
+   * pass another MathML element to parse in its insertion context. Typed
+   * against `MathMLElementTagNameMap` so only MathML nodes are accepted.
    * @template {string} T
    * @param {T} template
+   * @param {MathMLElementTagNameMap[keyof MathMLElementTagNameMap]} [contextNode]
    */
-  mathML(template) {
+  mathML(template, contextNode = Template.#mathMLContext) {
     return /** @type {Fragment<T, MathMLElementTagNameMap, P, A>} */ (
-      new Fragment(template, Template.#mathMLContext, this.#selectors)
+      new Fragment(template, contextNode, this.#selectors)
     );
   }
 }
