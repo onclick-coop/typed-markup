@@ -228,9 +228,13 @@ export class TemplateFactory {
 }
 
 /**
+ * Accumulator-passing style keeps the recursive reference in tail position so
+ * TypeScript evaluates it iteratively (tail-recursion elimination on
+ * conditional types) instead of counting against the instantiation depth limit.
  * @template {string} S
  * @template {string} [P="slot:"]
- * @typedef {S extends `${string}${MatchSlot<infer T, P>}${infer Rest}` ? T | ExtractSlots<Rest, P> : never} ExtractSlots
+ * @template {string} [Acc=never]
+ * @typedef {S extends `${string}${MatchSlot<infer T, P>}${infer Rest}` ? ExtractSlots<Rest, P, Acc | T> : Acc} ExtractSlots
  */
 /**
  * @template {string} T
@@ -243,13 +247,19 @@ export class TemplateFactory {
  */
 /**
  * @template {string} S
- * @typedef {S extends `${infer First}<!--${string}-->${infer Rest}` ? `${First}${StripComments<Rest>}` : S} StripComments
+ * @template {string} [Acc=""]
+ * @typedef {S extends `${infer First}<!--${string}-->${infer Rest}` ? StripComments<Rest, `${Acc}${First}`> : `${Acc}${S}`} StripComments
  */
 /**
+ * The ref-match test lives in the accumulator type-argument so the result
+ * position holds exactly one bare tail call (eligible for tail-recursion
+ * elimination). The base case flattens the accumulated intersection into a
+ * single object type.
  * @template {string} S
  * @template {{ [K in keyof M & string]: Element }} [M=HTMLElementTagNameMap]
  * @template {string} [A="data-ref"]
- * @typedef {S extends `${string}<${infer TagAndAttr}>${infer Rest}` ?  (TagAndAttr extends MatchRefAndTag<infer T, infer Ref, A> ? { [K in Ref]: TagToElement<T, M> } & ExtractRefsHelper<Rest, M, A> : ExtractRefsHelper<Rest, M, A>) : {}} ExtractRefsHelper
+ * @template {Record<string, Element>} [Acc={}]
+ * @typedef {S extends `${string}<${infer TagAndAttr}>${infer Rest}` ? ExtractRefsHelper<Rest, M, A, TagAndAttr extends MatchRefAndTag<infer T, infer Ref, A> ? Acc & { [K in Ref]: TagToElement<T, M> } : Acc> : { [K in keyof Acc]: Acc[K] }} ExtractRefsHelper
  */
 /**
  * @template {string} T
@@ -258,10 +268,14 @@ export class TemplateFactory {
  * @typedef {`${string} ${A}="${R}"${string}` & `${T} ${string}`} MatchRefAndTag
  */
 /**
+ * The `infer R extends ...` reassertion gives the accumulator-built result a
+ * provable `Record<string, Element>` upper bound in generic contexts (where
+ * the helper is deferred and otherwise opaque); for concrete template strings
+ * it is an identity.
  * @template {string} S
  * @template {{ [K in keyof M & string]: Element }} [M=HTMLElementTagNameMap]
  * @template {string} [A="data-ref"]
- * @typedef {ExtractRefsHelper<StripClosingTags<StripComments<S>>, M, A>} ExtractRefs
+ * @typedef {ExtractRefsHelper<StripClosingTags<StripComments<S>>, M, A> extends infer R extends Record<string, Element> ? R : never} ExtractRefs
  */
 /**
  * @template {string} K
@@ -270,5 +284,6 @@ export class TemplateFactory {
  */
 /**
  * @template {string} S
- * @typedef {S extends `${infer First}</${string}>${infer Rest}` ? `${First}${StripClosingTags<Rest>}` : S } StripClosingTags
+ * @template {string} [Acc=""]
+ * @typedef {S extends `${infer First}</${string}>${infer Rest}` ? StripClosingTags<Rest, `${Acc}${First}`> : `${Acc}${S}`} StripClosingTags
  */

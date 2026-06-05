@@ -1,0 +1,10 @@
+{
+  "extends": "./jsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "declaration": false,
+    "emitDeclarationOnly": false
+  },
+  "include": ["*.js"],
+  "exclude": ["*.bench.js", "*.config.js"]
+}

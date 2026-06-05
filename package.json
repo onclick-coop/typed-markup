@@ -3,8 +3,9 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "prepare": "tsc -p jsconfig.json --declaration --emitDeclarationOnly --outDir dist",
-    "test": "vitest"
+    "prepare": "tsc -p jsconfig.json",
+    "test": "vitest",
+    "typecheck": "tsc -p jsconfig.test.json"
   },
   "files": [
     "index.js",
