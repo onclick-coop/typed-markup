@@ -34,21 +34,30 @@ class Markup {
  * @template {string} [A=typeof Template.defaultSelectors.refAttr]
  */
 export class Fragment {
-  static #range = document.createRange();
+  // Templates are parsed in a document without a browsing context, so the
+  // parsed copy has no custom element registry: nothing in it is upgraded
+  // or fetched, and `bind` decides the registry of each bound copy.
+  static #inertDocument = document.implementation.createHTMLDocument();
+  static #range = Fragment.#inertDocument.createRange();
 
   #fragment;
   #slotPrefix;
   #refAttr;
+  #customElementRegistry;
   /**
    * @param {T} template
    * @param {M[keyof M]} contextNode
    * @param {CompleteTemplateSelectors<P, A>} selectors
+   * @param {CustomElementRegistry | undefined} customElementRegistry
    */
-  constructor(template, contextNode, selectors) {
-    Fragment.#range.selectNodeContents(contextNode);
+  constructor(template, contextNode, selectors, customElementRegistry) {
+    Fragment.#range.selectNodeContents(
+      Fragment.#inertDocument.importNode(contextNode),
+    );
     this.#fragment = Fragment.#range.createContextualFragment(template);
     this.#slotPrefix = selectors.slotPrefix;
     this.#refAttr = selectors.refAttr;
+    this.#customElementRegistry = customElementRegistry;
   }
 
   /**
@@ -62,8 +71,11 @@ export class Fragment {
         args[0] ?? {}
       );
 
-    const fragment = /** @type {DocumentFragment} */ (
-      this.#fragment.cloneNode(true)
+    const fragment = document.importNode(
+      this.#fragment,
+      this.#customElementRegistry
+        ? { customElementRegistry: this.#customElementRegistry }
+        : true,
     );
     const nodeIter = document.createTreeWalker(
       fragment,
@@ -123,19 +135,22 @@ export class Template {
   );
 
   #selectors;
+  /** @type {CustomElementRegistry | undefined} */
+  #customElementRegistry;
   /**
    * The selectors argument is only omittable while P and A match the
    * defaults; a deviating type argument makes the matching runtime value
    * required, so e.g. `new Template<"a:", "data-b">()` is a type error
    * instead of silent type/runtime drift.
-   * @param {CompleteTemplateSelectors<P, A> extends typeof Template.defaultSelectors ? [selectors?: TemplateSelectors<P, A>] : [selectors: TemplateSelectors<P, A>]} args
+   * @param {CompleteTemplateSelectors<P, A> extends typeof Template.defaultSelectors ? [selectors?: TemplateSelectors<P, A>, options?: TemplateOptions] : [selectors: TemplateSelectors<P, A>, options?: TemplateOptions]} args
    */
   constructor(...args) {
-    const [selectors] = args;
+    const [selectors, options] = args;
     this.#selectors = /** @type {CompleteTemplateSelectors<P, A>} */ ({
       slotPrefix: selectors?.slotPrefix ?? Template.defaultSelectors.slotPrefix,
       refAttr: selectors?.refAttr ?? Template.defaultSelectors.refAttr,
     });
+    this.#customElementRegistry = options?.customElementRegistry;
   }
 
   get slotPrefix() {
@@ -157,7 +172,12 @@ export class Template {
    */
   html(template, contextNode = document.documentElement) {
     return /** @type {Fragment<T, HTMLElementTagNameMap, P, A>} */ (
-      new Fragment(template, contextNode, this.#selectors)
+      new Fragment(
+        template,
+        contextNode,
+        this.#selectors,
+        this.#customElementRegistry,
+      )
     );
   }
 
@@ -171,7 +191,12 @@ export class Template {
    */
   svg(template, contextNode = Template.#svgContext) {
     return /** @type {Fragment<T, SVGElementTagNameMap, P, A>} */ (
-      new Fragment(template, contextNode, this.#selectors)
+      new Fragment(
+        template,
+        contextNode,
+        this.#selectors,
+        this.#customElementRegistry,
+      )
     );
   }
 
@@ -185,7 +210,12 @@ export class Template {
    */
   mathML(template, contextNode = Template.#mathMLContext) {
     return /** @type {Fragment<T, MathMLElementTagNameMap, P, A>} */ (
-      new Fragment(template, contextNode, this.#selectors)
+      new Fragment(
+        template,
+        contextNode,
+        this.#selectors,
+        this.#customElementRegistry,
+      )
     );
   }
 }
@@ -197,6 +227,15 @@ export const template = new Template(Template.defaultSelectors);
  * @template {string} P
  * @template {string} A
  * @typedef {{ slotPrefix: P, refAttr: A }} CompleteTemplateSelectors
+ */
+
+/**
+ * @typedef TemplateOptions
+ * @prop {CustomElementRegistry} [customElementRegistry]
+ *   Registry that custom elements in bound markup belong to, e.g. the
+ *   scoped registry of the shadow roots the markup is inserted into. They
+ *   are upgraded from it once connected. Defaults to the document's global
+ *   registry.
  */
 
 /**

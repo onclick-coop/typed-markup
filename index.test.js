@@ -240,3 +240,49 @@ describe("Template / configurable prefix+attr", () => {
     expect(box.firstChild).toBeInstanceOf(Comment);
   });
 });
+
+describe("Template / custom element registry", () => {
+  it("binds custom elements into the template's registry", () => {
+    const registry = new CustomElementRegistry();
+    class ScopedThing extends HTMLElement {}
+    registry.define("scoped-thing", ScopedThing);
+    const f = new Template(Template.defaultSelectors, {
+      customElementRegistry: registry,
+    }).html(`<scoped-thing data-ref="thing"></scoped-thing>`);
+
+    const host = document.createElement("div");
+    const shadow = host.attachShadow({
+      mode: "open",
+      customElementRegistry: registry,
+    });
+    const m = f.bind();
+    shadow.append(m.root);
+    document.body.append(host);
+
+    expect(m.refs.thing.customElementRegistry).toBe(registry);
+    expect(m.refs.thing).toBeInstanceOf(ScopedThing);
+    host.remove();
+  });
+
+  it("binds custom elements into the global registry by default", () => {
+    const m = template.html(`<global-thing data-ref="thing"></global-thing>`).bind();
+    expect(m.refs.thing.customElementRegistry).toBe(customElements);
+  });
+
+  it("does not construct custom elements while parsing", () => {
+    let constructed = 0;
+    customElements.define(
+      "counted-thing",
+      class extends HTMLElement {
+        constructor() {
+          super();
+          constructed++;
+        }
+      },
+    );
+    const f = template.html(`<counted-thing></counted-thing>`);
+    expect(constructed).toBe(0);
+    f.bind();
+    expect(constructed).toBe(1);
+  });
+});
